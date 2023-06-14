@@ -1,6 +1,5 @@
-use std::io::Write;
+use std::process::{self, Output};
 use std::process::{Command, Stdio};
-use std::process;
 
 use clap::Parser;
 
@@ -27,26 +26,34 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let target_args = args.target_args.join(" ");
-    let target_child = Command::new(args.target)
-        .arg(target_args)
-        .stdout(Stdio::piped())
-        .spawn()
-        .expect("failed to execute ls");
-    let output = target_child.wait_with_output().expect("failed to get output");
-    let status_code = output.status.code().unwrap();
+    let (output, status_code) = spawn_target(&args).unwrap();
 
-    let mut grep_child = Command::new("grep")
-        .arg(args.keyword)
-        .stdin(Stdio::piped())
-        .spawn()
-        .expect("failed to execute grep");
-    grep_child.stdin.as_mut().unwrap().write(&output.stdout).unwrap();
-    let output = grep_child.wait_with_output().expect("failed to get output");
-    let result = String::from_utf8(output.stdout).expect("failed to get utf8");
-    print!("{}", result);
+    filter_print(output.stdout, &args.keyword);
+    filter_print(output.stderr, &args.keyword);
 
     if args.status {
         process::exit(status_code);
+    }
+}
+
+fn spawn_target(args: &Args) -> Result<(Output, i32), &'static str> {
+    let target_args = args.target_args.join(" ");
+    let target_child = Command::new(&args.target)
+        .arg(target_args)
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn target");
+    let output = target_child.wait_with_output().expect("failed to wait output");
+    let status_code = output.status.code().expect("failed to get status code");
+
+    Ok((output, status_code))
+}
+
+fn filter_print(out: Vec<u8>, keyword: &String) {
+    let out_str = String::from_utf8(out).unwrap();
+    for line in out_str.lines() {
+        if line.contains(keyword) {
+            print!("{}\n", line);
+        }
     }
 }

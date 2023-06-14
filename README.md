@@ -27,4 +27,3 @@ Add a File Watcher after installation of staticcheck:
 <img width="649" alt="image" src="https://github.com/miranquil/scgld/assets/25676311/8b90ac71-da53-4d9a-99e1-9168c88ab15a">
 
 Then the output of staticcheck will be filtered to current file only.
-
