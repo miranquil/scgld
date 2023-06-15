@@ -19,6 +19,10 @@ struct Args {
     #[arg(long)]
     status: bool,
 
+    /// If set, status option will work only when keyword in target's stdout
+    #[arg(long)]
+    exist: bool,
+
     /// Target arguments
     target_args: Vec<String>,
 }
@@ -28,10 +32,15 @@ fn main() {
 
     let (output, status_code) = spawn_target(&args).unwrap();
 
-    filter_print(output.stdout, &args.keyword);
-    filter_print(output.stderr, &args.keyword);
+    let stdout_exist = filter_print(output.stdout, &args.keyword);
+    let stderr_exist = filter_print(output.stderr, &args.keyword);
 
     if args.status {
+        if args.exist {
+            if !(stdout_exist || stderr_exist) {
+                return;
+            }
+        }
         process::exit(status_code);
     }
 }
@@ -49,11 +58,15 @@ fn spawn_target(args: &Args) -> Result<(Output, i32), &'static str> {
     Ok((output, status_code))
 }
 
-fn filter_print(out: Vec<u8>, keyword: &String) {
+fn filter_print(out: Vec<u8>, keyword: &String) -> bool {
+    let mut exist = false;
     let out_str = String::from_utf8(out).unwrap();
     for line in out_str.lines() {
         if line.contains(keyword) {
+            exist = true;
             print!("{}\n", line);
         }
     }
+
+    exist
 }
